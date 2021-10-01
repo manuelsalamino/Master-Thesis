@@ -163,6 +163,25 @@ def real_dataset(csv_path):
     return data, attributes
 
 
+def line_point_distance(A, B, P):
+    """
+    Return the distance between a Line and a Points (in n-dimensions), the Line is defined by the two points A and B.
+
+    :param A: Point on the Line
+    :param B: Point on the Line (B =/= A)
+    :param P: Point outside the Line
+    :return: returns the distance
+    """
+
+    pa = P - A                # distance vector from the point A on the Line to the point P
+    ba = B - A                   # distance vector that define the direction of the Line
+
+    t = np.dot(pa, ba) / np.dot(ba, ba)
+    d = np.linalg.norm(pa - t * ba, ord=2)
+
+    return d
+
+
 def parametric_equation(param):
     degree, n_variables = param.shape
     degree -= 1

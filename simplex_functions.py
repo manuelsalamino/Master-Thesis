@@ -33,9 +33,9 @@ def simplex_hyperplane_points():
 def perfect_anomalies_hyperplane_points(parameters):
     problem = constraint.Problem()
 
-    problem.addVariable('h1', np.arange(-3, 3, 0.1))
-    problem.addVariable('h2', np.arange(-3, 3, 0.1))
-    problem.addVariable('h3', np.arange(-3, 3, 0.1))
+    problem.addVariable('h1', np.arange(-2, 2, 0.05))
+    problem.addVariable('h2', np.arange(-2, 2, 0.05))
+    problem.addVariable('h3', np.arange(-2, 2, 0.05))
 
     def our_constraint(x, y, z):
         a = parameters[0]

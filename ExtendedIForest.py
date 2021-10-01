@@ -1,7 +1,8 @@
 from IForest import IForest
-from Dataset import AbstractDataset
+from Dataset import AbstractDataset, SyntheticDataset
 from ITree.INode import INode
-from utils_functions import parametric_equation, distance_matrix, get_data_centroid, evaluate_results
+from utils_functions import parametric_equation, distance_matrix, get_data_centroid,\
+    evaluate_results, line_point_distance
 from simplex_functions import simplex_hyperplane_points, perfect_anomalies_hyperplane_points
 
 import numpy as np
@@ -12,9 +13,11 @@ from sklearn.metrics import roc_curve, auc, precision_score
 from plotly import graph_objects as go
 import matplotlib.pyplot as plt
 import time
+import copy
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from sklearn.svm import OneClassSVM
 from sklearn.cluster import KMeans
+from sklearn.neighbors import LocalOutlierFactor
 import warnings
 
 np.seterr(divide='ignore', invalid='ignore')
@@ -242,7 +245,7 @@ class ExtendedIForest:
         return best_popt
 
     def OC_Svm(self):
-        perc_training = 0.8
+        '''perc_training = 0.8
         indexes = np.argwhere(self.dataset.labels == 0).reshape(-1,)
 
         n_training = floor(len(indexes) * perc_training)
@@ -252,33 +255,76 @@ class ExtendedIForest:
         training_indexes = rnd.choice(indexes, size=n_training, replace=False)
         test_indexes = np.setdiff1d(np.arange(self.dataset.n_samples), training_indexes)
 
+        # HISTOGRAM DATA
         training_samples = self.histogram_data[training_indexes]
         test_samples = self.histogram_data[test_indexes]
 
+        # DATASET DATA
+        #training_samples = self.dataset.data[training_indexes]
+        #test_samples = self.dataset.data[test_indexes]
+
+        y_true = [1 if l == 0 else 0 for l in self.dataset.labels[test_indexes]]'''
+
+        # HISTOGRAM DATA FULL UNSUPERVISED
+        training_samples = self.histogram_data
+        test_samples = self.histogram_data
+
+        # DATASET DATA FULL UNSUPERVISED
+        #training_samples = self.dataset.data
+        #test_samples = self.dataset.data
+
+        y_true = [1 if l==0 else 0 for l in self.dataset.labels]
+
         df = pd.DataFrame()
 
-        y_true = [0 if l == 1 else 1 for l in self.dataset.labels[test_indexes]]
+        for kernel in ['poly']:
+            for gamma in ['auto']:
+                for nu in [0.5]:
 
-        for kernel in ['poly']:  # ['linear', 'poly', 'rbf', 'sigmoid']:
-            for gamma in ['auto', 'scale']:
-                for degree in [2, 4, 5, 10, 20, 30]:
-                    for nu in [1-0.000001, 1-0.01, 1-0.1, 1-0.3, 1-0.5, 0.3, 0.1, 0.01, 0.00001]:
+                    svm = OneClassSVM(kernel=kernel, gamma=gamma, nu=nu).fit(training_samples)
 
-                        svm = OneClassSVM(kernel=kernel, gamma=gamma, nu=nu, degree=degree).fit(training_samples)
+                    y_pred_labels = svm.predict(test_samples)
+                    y_pred_labels = [0 if l == -1 else 1 for l in y_pred_labels]
 
-                        y_pred_labels = svm.predict(test_samples)
-                        y_pred_labels = [0 if l == -1 else 1 for l in y_pred_labels]
+                    y_pred_score = svm.score_samples(test_samples)
 
-                        y_pred_score = svm.score_samples(test_samples)
+                    print(f'########### {kernel}-{gamma}-{nu} ###########')
 
-                        print(f'########### {kernel}-{gamma}-{nu} ###########')
+                    precision, roc_auc = evaluate_results(y_true=y_true,
+                                                          y_pred_score=y_pred_score,
+                                                          y_pred_labels=y_pred_labels)
 
-                        precision, roc_auc = evaluate_results(y_true=y_true,
-                                                              y_pred_score=y_pred_score,
-                                                              y_pred_labels=y_pred_labels)
+                    df = df.append(pd.DataFrame([[self.dataset.dataset_name, kernel, gamma, nu, precision, roc_auc]],
+                                                columns=['dataset', 'kernel', 'gamma', 'nu', 'precision', 'roc_auc']))
 
-                        df = df.append(pd.DataFrame([[self.dataset.dataset_name, kernel, gamma, degree, nu, precision, roc_auc]],
-                                                    columns=['dataset', 'kernel', 'gamma', 'degree', 'nu', 'precision', 'roc_auc']))
+                    '''
+                    #draw dataset (if synthetic dataset and if data=dataset.data
+                    dataset = copy.deepcopy(self.dataset)
+                    dataset.data = test_samples
+                    dataset.n_samples = len(test_samples)
+                    dataset.labels = np.asarray([1 if l == 0 else 0 for l in y_true])
+                    dataset.show_data()
+                    dataset.labels = np.asarray([1 if l == 0 else 0 for l in y_pred_labels])
+                    dataset.show_data()'''
+
+
+        return df
+
+    def LOF(self):
+
+        lof = LocalOutlierFactor()
+        y_pred_labels = lof.fit_predict(self.histogram_data)
+        y_pred_labels = [1 if l == -1 else 0 for l in y_pred_labels]
+        y_pred_score = -lof.negative_outlier_factor_
+
+        df = pd.DataFrame()
+
+        precision, roc_auc = evaluate_results(y_true=self.dataset.labels,
+                                              y_pred_score=y_pred_score,
+                                              y_pred_labels=y_pred_labels)
+
+        df = df.append(pd.DataFrame([[self.dataset.dataset_name, precision, roc_auc]],
+                                    columns=['dataset', 'precision', 'roc_auc']))
 
         return df
 
@@ -355,13 +401,13 @@ class ExtendedIForest:
         X, Y, Z = simplex_hyperplane_points()
 
         # real label
-        #anomaly_data = self.histogram_data[self.dataset.labels == 1]
-        #normal_data = self.histogram_data[self.dataset.labels == 0]
+        anomaly_data = self.histogram_data[self.dataset.labels == 1]
+        normal_data = self.histogram_data[self.dataset.labels == 0]
 
         # IFOR label
-        scores = self.get_anomaly_scores()
-        anomaly_data = self.histogram_data[scores >= 0.5]
-        normal_data = self.histogram_data[scores < 0.5]
+        #scores = self.get_anomaly_scores()
+        #anomaly_data = self.histogram_data[scores >= 0.5]
+        #normal_data = self.histogram_data[scores < 0.5]
 
         if n_variables == 2:  # 2D plot
             # draw approximation
@@ -490,12 +536,12 @@ class ExtendedIForest:
 
             return fig
 
-        # TODO integrate parameters with 'perfect anomalous hyperplane' to draw the right hyperplane
         else:   # n_variables > 3
             figures = []
-            STEP_DIMENSION = 5
+            STEP_DIMENSION = 2  # 5
 
-            for j in range(4, 9):  # n_variables-STEP_DIMENSION):
+            #for j in range(4, 9):  # n_variables-STEP_DIMENSION):
+            for j in range(2, n_variables-STEP_DIMENSION):
 
                 x_normal, y_normal, z_normal = [], [], []
                 x_anomaly, y_anomaly, z_anomaly = [], [], []
@@ -592,11 +638,11 @@ class ExtendedIForest:
                 fig.update_layout(
                     scene=dict(
                         xaxis=dict(nticks=4),  # range=[-2, 2], ),
-                        xaxis_title="h1",
+                        xaxis_title="h1=[0..." + str(j-1) + "]",
                         yaxis=dict(nticks=4),  # range=[-2, 2], ),
-                        yaxis_title="h2",
+                        yaxis_title="h2=[" + str(j) + "..." + str(j+STEP_DIMENSION-1) + "]",
                         zaxis=dict(nticks=4),  # range=[-2, 2], ),
-                        zaxis_title="h3",
+                        zaxis_title="h3=[" + str(j+STEP_DIMENSION) + "..." + str(n_variables) + "]",
                         annotations=[
                             dict(
                                 x=1,
@@ -640,80 +686,163 @@ class ExtendedIForest:
 
             return figures
 
-    def plot_distances(self, degree=1, parameters=None):
+    def roc_auc_along_hyperplane(self, indexes, parameters=None, show_distance_plot=False):    # indexes: indexes of test set
+
         if parameters is not None:
             self.parameters = parameters
         degree, n_variables = self.parameters.shape
         degree -= 1
 
-        data_label = zip(self.histogram_data, self.dataset.labels)
+        data_label = zip(self.histogram_data[indexes], self.dataset.labels[indexes], self.get_anomaly_scores()[indexes])
 
-        low_interval = 1e-3
+        distances_dict = []
 
-        t_line = np.arange(-3, 3, 0.1)
-        distances_dict = {}
+        t1 = -1
+        t2 = 1
 
-        for dat, l in data_label:
-            dist_opt = np.inf
-            p_opt = 0
-            best_t = {0: np.inf, 1: np.inf, 2: np.inf}
-            for t in t_line:
-                p = [0] * n_variables
-                for d in range(degree + 1):
-                    p += self.parameters[d] * (t ** d)
-                dist = np.linalg.norm(dat - p)
-                if dist < max(best_t.values()):
-                    max_key = max(best_t, key=best_t.get)
-                    del best_t[max_key]
-                    best_t[t] = dist
+        # extract two points on the Line
+        A = self.parameters[0] + self.parameters[1] * t1
+        B = self.parameters[0] + self.parameters[1] * t2
 
-            t_min = min(best_t.keys())
-            t_max = max(best_t.keys())
-            t_line_restrict = np.arange(t_min, t_max, low_interval)
+        ba = B - A  # distance vector that define the direction of the Line
 
-            for t in t_line_restrict:
-                p = [0] * n_variables
-                for d in range(degree + 1):
-                    p += self.parameters[d] * (t ** d)
-                dist = np.linalg.norm(dat - p)
-                if dist < dist_opt:
-                    dist_opt = dist
-                    p_opt = p
-                    t_opt = t
-            # p_opt is my fitting for dat
+        for dat, l, score in data_label:
+            P = dat
+            pa = P - A  # distance vector from the point A on the Line to the point P
 
-            dist_versor = dat - p_opt
-            distances_dict[tuple(dat)] = {'t_opt': t_opt, 'p_opt': p_opt, 'dist_opt': dist_opt,
-                                          'versor_opt': dist_versor, 'label': l}
+            t = np.dot(pa, ba) / np.dot(ba, ba)
+            d = np.linalg.norm(pa - t * ba, ord=2)
 
-        colors = ['red' if v['label'] == 1 else 'green' for v in distances_dict.values()]
+            distances_dict.append({'t_opt': t, 'p_opt': t * ba, 'dist_opt': d,
+                                   'versor_opt': [], 'label': l, 'score': score})
 
-        distances = [v['dist_opt'] for v in distances_dict.values()]
-        labels_distance_order = [v['label'] for v in distances_dict.values()]
-        ts = [v['t_opt'] for v in distances_dict.values()]
+        '''else:         # else of if degree==1 (before t1=-1)
 
-        unique, unique_counts = np.unique(ts, return_counts=True)
-        doubles = unique[unique_counts > 1]
-        for t in doubles:
-            index = np.where(ts == t)[0]
-            for i in range(1, len(index)):
-                ts[index[i]] += (i * (low_interval / len(index)))
+            t_line = np.arange(-2, 2, 0.05)
 
-        avg_width = (max(ts) - min(ts)) / len(ts)
+            for dat, l, score in data_label:
+                dist_opt = np.inf
+                p_opt = 0
+                best_t = {0: np.inf, 1: np.inf, 2: np.inf}
+                for t in t_line:
+                    p = [0] * n_variables
+                    for d in range(degree + 1):
+                        p += self.parameters[d] * (t ** d)
+                    dist = np.linalg.norm(dat - p)
+                    if dist < max(best_t.values()):
+                        max_key = max(best_t, key=best_t.get)
+                        del best_t[max_key]
+                        best_t[t] = dist
 
-        fig = go.Figure([go.Bar(x=(ts-min(ts)) / (max(ts)-min(ts)),
+                t_min = min(best_t.keys())
+                t_max = max(best_t.keys())
+                t_line_restrict = np.arange(t_min, t_max, low_interval/500)
+
+                for t in t_line_restrict:
+                    p = [0] * n_variables
+                    for d in range(degree + 1):
+                        p += self.parameters[d] * (t ** d)
+                    dist = np.linalg.norm(dat - p)
+                    if dist < dist_opt:
+                        dist_opt = dist
+                        p_opt = p
+                        t_opt = t
+                # p_opt is my fitting for dat
+
+                dist_versor = dat - p_opt
+                distances_dict[tuple(dat)] = {'t_opt': t_opt, 'p_opt': p_opt, 'dist_opt': dist_opt,
+                                              'versor_opt': dist_versor, 'label': l, 'score': score}'''
+
+        colors = ['red' if v['label'] == 1 else 'green' for v in distances_dict]
+
+        distances = [v['dist_opt'] for v in distances_dict]
+        labels_distance_order = [v['label'] for v in distances_dict]
+        #labels_distance_order = self.dataset.labels[indexes]
+        ts = [v['t_opt'] for v in distances_dict]
+
+        # COMPUTE ROC AUC of IFOR
+        fpr_IFOR, tpr_IFOR, _ = roc_curve(self.dataset.labels[indexes], self.get_anomaly_scores()[indexes])
+        roc_auc_IFOR = auc(fpr_IFOR, tpr_IFOR)
+
+        # COMPUTE ROC AUC of the EMBEDDING
+        fpr_embedding, tpr_embedding, _ = roc_curve(labels_distance_order, ts)  # (ts - min(ts)) / (max(ts) - min(ts)))
+        roc_auc_embedding = auc(fpr_embedding, tpr_embedding)
+        if roc_auc_embedding < 0.5:
+            fpr_embedding, tpr_embedding, _ = roc_curve(labels_distance_order, [-t for t in ts])  # 1 - ((ts - min(ts)) / (max(ts) - min(ts))))
+            roc_auc_embedding = auc(fpr_embedding, tpr_embedding)
+
+        if show_distance_plot:
+
+            low_interval = 1e-3
+
+            unique, unique_counts = np.unique(ts, return_counts=True)
+            doubles = unique[unique_counts > 1]
+            for t in doubles:
+                index = np.where(ts == t)[0]
+                for i in range(1, len(index)):
+                    ts[index[i]] += (i * (low_interval / len(index)))
+
+            #avg_width = (max(ts) - min(ts)) / 700
+            '''if degree == 1:
+                avg_width *= 3
+            else:
+                avg_width /= 2'''
+
+            avg_width = 7e-4
+
+            fig = go.Figure([go.Bar(x=(ts-min(ts)) / (max(ts)-min(ts)),
+                                    y=distances,
+                                    marker_color=colors,
+                                    width=[avg_width] * len(ts))
+                             ])
+
+            fig.add_annotation(text=f'ROC AUC IFOR= {roc_auc_IFOR:.4f}',
+                               font=dict(family="Arial"),
+                               xref="paper", yref="paper",
+                               x=1., y=0.97, showarrow=False,
+                               borderwidth=2,
+                               borderpad=4,
+                               bgcolor="#ff7f0e",
+                               opacity=0.8
+                               )
+            fig.add_annotation(text=f'ROC AUC embedding= {roc_auc_embedding:.4f}',
+                               font=dict(family="Arial"),
+                               xref="paper", yref="paper",
+                               x=1., y=0.91, showarrow=False,
+                               borderwidth=2,
+                               borderpad=4,
+                               bgcolor="#ff5f0e",
+                               opacity=0.8
+                               )
+
+            fig.update_layout(title={
+                'text': self.dataset.dataset_name + " - fit_polynomial of degree " + str(degree),
+                'x': 0.435,
+                'y': 0.98,
+                'xanchor': 'center',
+                'yanchor': 'top'}
+            )
+
+            fig.show()
+
+        '''# PLOT DISTANCES USING ANOMALY SCORE ON X-AXIS
+
+        scores = [v['score'] for v in distances_dict.values()]
+
+        fig = go.Figure([go.Bar(x=(scores-min(scores)) / (max(scores)-min(scores)),
                                 y=distances,
                                 marker_color=colors,
-                                width=[avg_width / 3] * len(ts))
+                                width=[avg_width] * len(ts))
                          ])
 
         fpr_IFOR, tpr_IFOR, _ = roc_curve(self.dataset.labels, self.get_anomaly_scores())
         roc_auc_IFOR = auc(fpr_IFOR, tpr_IFOR)
 
-        fpr_embedding, tpr_embedding, _ = roc_curve(labels_distance_order, (ts-min(ts)) / (max(ts)-min(ts)))
+        fpr_embedding, tpr_embedding, _ = roc_curve(labels_distance_order, (ts - min(ts)) / (max(ts) - min(ts)))
         roc_auc_embedding = auc(fpr_embedding, tpr_embedding)
         if roc_auc_embedding < 0.5:
-            fpr_embedding, tpr_embedding, _ = roc_curve(labels_distance_order, 1-((ts - min(ts)) / (max(ts) - min(ts))))
+            fpr_embedding, tpr_embedding, _ = roc_curve(labels_distance_order,
+                                                        1 - ((ts - min(ts)) / (max(ts) - min(ts))))
             roc_auc_embedding = auc(fpr_embedding, tpr_embedding)
 
         fig.add_annotation(text=f'ROC AUC IFOR= {roc_auc_IFOR:.4f}',
@@ -736,14 +865,14 @@ class ExtendedIForest:
                            )
 
         fig.update_layout(title={
-            'text': self.dataset.dataset_name + " - fit_polynomial of degree " + str(d),
+            'text': self.dataset.dataset_name + " - fit_polynomial of degree " + str(degree),
             'x': 0.435,
             'y': 0.98,
             'xanchor': 'center',
             'yanchor': 'top'}
         )
 
-        fig.show()
+        fig.show()'''
 
         '''fig = self.plot(parameters=self.parameters)
 
@@ -756,6 +885,8 @@ class ExtendedIForest:
 
         if fig is not None:
             fig.show()'''
+
+        return roc_auc_IFOR, roc_auc_embedding
 
     def distance_matrices_analysis(self):
 
@@ -833,7 +964,8 @@ class ExtendedIForest:
 
         for i in range(1, self.dataset.n_samples):
             for j in range(i):
-                dist = np.linalg.norm(self.histogram_data[i] - self.histogram_data[j], ord=2)
+                # dist = np.linalg.norm(self.histogram_data[i] - self.histogram_data[j], ord=2)    # euclidean distance
+                dist = abs(anomaly_score[i] - anomaly_score[j])        # anomaly score distance
                 if self.dataset.labels[i] == 0 and self.dataset.labels[j] == 0:
                     if dist < max(min_distances_norm.keys()) and dist not in min_distances_norm:
                         max_key = max(min_distances_norm.keys())
@@ -858,6 +990,9 @@ class ExtendedIForest:
         max_depth = ceil(np.max(self.depths))
 
         for k, v in min_distances.items():
+            if isinstance(self.dataset, SyntheticDataset):
+                self.dataset.show_data(v)
+
             sub = abs(self.depths[v[0]]-self.depths[v[1]])
             print(v, k)
             print("#zeros: ", sum(sub == 0))

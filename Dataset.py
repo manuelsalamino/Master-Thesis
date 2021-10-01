@@ -59,7 +59,7 @@ class RealDataset(AbstractDataset):
 class SyntheticDataset(AbstractDataset):
     dataset_type: str
 
-    def __init__(self, n_samples=300, anomalies_rate=0.1, dataset_type="blobs", show_data=True, **kwargs):
+    def __init__(self, n_samples=300, anomalies_rate=0.1, dataset_type="blobs", show_data=False, **kwargs):
 
         self.n_samples = n_samples
         self.n_anomalies = floor(n_samples * anomalies_rate)
@@ -87,15 +87,36 @@ class SyntheticDataset(AbstractDataset):
         if show_data:
             self.show_data()
 
-    def show_data(self):
+    def show_data(self, indexes=None):
+        colors = np.array(['#1f77b4' if self.labels[i] == 0 else '#ff7f0e' for i in range(self.n_samples)])
+        if indexes is not None:
+            colors[indexes[0]] = 'red'
+            colors[indexes[1]] = 'red'
+
         normal_points_x1, normal_points_x2 = zip(*self.data[self.labels == 0])
         anomaly_points_x1, anomaly_points_x2 = zip(*self.data[self.labels == 1])
-        plt.scatter(normal_points_x1, normal_points_x2)
-        plt.scatter(anomaly_points_x1, anomaly_points_x2)
+        #color_normal = ['#1f77b4'] * (self.n_samples - self.n_anomalies)
+        #color_anomaly = ['#ff7f0e'] * self.n_anomalies
+        color_normal = colors[self.labels == 0]
+        color_anomaly = colors[self.labels == 1]
+        plt.scatter(normal_points_x1, normal_points_x2, c=color_normal)
+        plt.scatter(anomaly_points_x1, anomaly_points_x2, c=color_anomaly)
         plt.axis('equal')
         plt.title(self.dataset_name)
         plt.xlabel('x1')
         plt.ylabel('x2')
+
+        if indexes is not None:
+            plt.annotate('instance 1', xy=self.data[indexes[0]], xycoords='data',
+                         xytext=(150 if self.data[indexes[0]][0] < 0 else -150, 20 if self.data[indexes[0]][1] < 0 else -20), textcoords='offset points',
+                         arrowprops=dict(facecolor='black', shrink=0.05, width=1),
+                         horizontalalignment='right', verticalalignment='top',
+                         )
+            plt.annotate('instance 2', xy=self.data[indexes[1]], xycoords='data',
+                         xytext=(150 if self.data[indexes[1]][0] < 0 else -150, -20 if self.data[indexes[1]][1] < 0 else 20), textcoords='offset points',
+                         arrowprops=dict(facecolor='black', shrink=0.05, width=1),
+                         horizontalalignment='right', verticalalignment='top',
+                         )
         plt.show()
 
     def generate_dataset(self, **kwargs):
