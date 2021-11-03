@@ -228,21 +228,25 @@ def get_data_centroid(data):
     return centroid
 
 
-def evaluate_results(y_true, y_pred_score=None, y_pred_labels=None):
+def evaluate_results(y_true, y_pred_score=None, y_pred_labels=None, print_results=False):
     y_true = np.asarray(y_true)
     y_pred_labels = np.asarray(y_pred_labels)
-    print('n_normal true:', len(y_true[y_true == 0]), 'n_normal pred:', len(y_pred_labels[y_pred_labels == 0]))
-    print('n_anomaly true:', len(y_true[y_true == 1]), 'n_anomaly pred:', len(y_pred_labels[y_pred_labels == 1]))
-
     precision = precision_score(y_true, y_pred_labels)
-    print('precision: ', precision)
+
+    if print_results:
+        print('n_normal true:', len(y_true[y_true == 0]), 'n_normal pred:', len(y_pred_labels[y_pred_labels == 0]))
+        print('n_anomaly true:', len(y_true[y_true == 1]), 'n_anomaly pred:', len(y_pred_labels[y_pred_labels == 1]))
+
+        print('precision: ', precision)
 
     if y_pred_score is None:
-        print('roc: None\n')
+        if print_results:
+            print('roc: None\n')
         return precision, None
 
     fpr, tpr, _ = roc_curve(y_true, y_pred_score)
     roc_auc = auc(fpr, tpr)
-    print('roc: ', roc_auc, '\n')
+    if print_results:
+        print('roc: ', roc_auc, '\n')
 
     return precision, roc_auc

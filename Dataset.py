@@ -41,16 +41,22 @@ class RealDataset(AbstractDataset):
         # save data and attributes
         data = pd.read_csv(csv_path)
 
-        # extract the attributes name (remove the 'id' and the label 'y')
+        # extract the attributes
         attributes = data.columns.tolist()
-        attributes.remove("y")
-        attributes.remove("id")
+        attributes.remove("y")             # remove the label
+        attributes.remove("id")             # remove the id attribute
+
+        for attr in attributes:
+            unique = np.unique(data[attr])
+            if np.array_equal(unique, [0, 1]):
+                attributes.remove(attr)                # remove binary attributes (as said in the paper pag. 419)
+
         self.attributes = attributes
 
-        self.labels = np.asarray(data['y'], dtype=int)
+        self.labels = np.asarray(data['y'], dtype=int)                # save the labels
         self.data = data.loc[:, self.attributes].to_numpy()
 
-        super().order_dataset()
+        #super().order_dataset()           # all the normal instances and then all the anomalies
 
         self.n_samples = self.data.shape[0]
         self.n_anomalies = len(self.labels[self.labels == 1])

@@ -76,7 +76,9 @@ class ExtendedIForest:
         for i in range(len(self.depths)):
             depths_i = self.depths[i]                # output of i-th test instance
 
-            h = np.histogram(depths_i, range(1, max_depth + 1))      # compute histogram values
+            # "max_depths + 2" to have the last interval [max_depth, max_depth+1]
+            # if max_depth = 8 last interval is [8, 9] , otherwise [7, 8] (two significant depths in the same interval)
+            h = np.histogram(depths_i, range(1, max_depth + 2))
 
             if show_plot and (i < 5 or i > self.dataset.n_samples-6):     # plot histogram of some normals and anomalies
                 title = self.dataset.dataset_name + ' - anomaly score: ' + str(scores[i])[:6] + ' --> Real label: '
@@ -312,7 +314,7 @@ class ExtendedIForest:
 
     def LOF(self):
 
-        lof = LocalOutlierFactor()
+        lof = LocalOutlierFactor(n_neighbors=10)         # n_neighbors = 10 from IFOR paper
         y_pred_labels = lof.fit_predict(self.histogram_data)
         y_pred_labels = [1 if l == -1 else 0 for l in y_pred_labels]
         y_pred_score = -lof.negative_outlier_factor_

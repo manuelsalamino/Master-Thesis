@@ -7,6 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.ensemble import IsolationForest
 
 
 # create SYNTHETIC dataset
@@ -35,7 +36,7 @@ files.remove('wood.csv')
 
 results = pd.DataFrame()
 
-#files = ['Breastw.csv']
+files = ['Mammography.csv']
 #files = ['Shuttle.csv', 'Smtp.csv']
 
 for dataset_name in files:
@@ -55,8 +56,27 @@ for dataset_name in files:
                                           y_pred_score=scores,
                                           y_pred_labels=y_pred_labels)
 
-    df = pd.DataFrame([[ifor.dataset.dataset_name, precision, roc_auc]],
-                      columns=['dataset', 'precision', 'roc_auc'])
+    # if correction - this make depths with no correction factor
+    '''ifor.depths = np.clip(ifor.depths, 0, 8)
+    scores = ifor.get_anomaly_scores()
+
+    precision, roc_auc = evaluate_results(y_true=ifor.dataset.labels,
+                                          y_pred_score=scores,
+                                          y_pred_labels=y_pred_labels)'''
+
+    ifor_sk = IsolationForest()
+    ifor_sk.fit(dataset.data)
+
+    y_pred_labels_sk = ifor_sk.predict(dataset.data)
+    y_pred_labels_sk = [1 if l == -1 else 0 for l in y_pred_labels_sk]
+    scores_sk = - ifor_sk.score_samples(dataset.data)
+
+    precision_sk, roc_auc_sk = evaluate_results(y_true=dataset.labels,
+                                                y_pred_score=scores_sk,
+                                                y_pred_labels=y_pred_labels_sk)
+
+    df = pd.DataFrame([[ifor.dataset.dataset_name, precision, roc_auc, precision_sk, roc_auc_sk]],
+                      columns=['dataset', 'precision', 'roc_auc', 'precision_sk', 'roc_auc_sk'])
 
     results = results.append(df)
 

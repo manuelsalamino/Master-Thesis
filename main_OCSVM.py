@@ -55,15 +55,16 @@ for dataset_name in files:
     path = os.path.join(dir_path, dataset_name)
     dataset = RealDataset(path)
 
-    ifor = ExtendedIForest(N_ESTIMATORS=100, MAX_SAMPLES=256, dataset=dataset)
-    ifor.fit_IForest()
-    ifor.profile_IForest()
-    ifor.trees_heights_as_histogram()
+    for i in range(3):
+        ifor = ExtendedIForest(N_ESTIMATORS=100, MAX_SAMPLES=256, dataset=dataset)
+        ifor.fit_IForest()
+        ifor.profile_IForest()
+        ifor.trees_heights_as_histogram()
 
-    #df = ifor.OC_Svm()
-    df = ifor.LOF()
+        #df = ifor.OC_Svm()
+        df = ifor.LOF()
 
-    results = results.append(df)
+        results = results.append(df)
 
 with pd.ExcelWriter('output.xlsx', mode='w') as writer:
     results.to_excel(writer, index=False)
