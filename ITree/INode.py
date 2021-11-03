@@ -42,7 +42,7 @@ class INode:
     # Profile the passed sample, returning the depth of the leaf it falls into
     def profile(self, x: np.ndarray, e: int):
         if self.leaf:
-            return e + self.c(self.size)
+            return e  # + self.c(self.size)
         if x[self.splitAtt] <= self.splitValue:
             return self.left.profile(x, e + 1)
         else:  # x[self.splitAtt] > self.splitValue
