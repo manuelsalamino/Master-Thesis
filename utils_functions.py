@@ -234,14 +234,16 @@ def evaluate_results(y_true, y_pred_score=None, y_pred_labels=None, print_result
     precision = precision_score(y_true, y_pred_labels)
 
     if print_results:
-        print('n_normal true:', len(y_true[y_true == 0]), 'n_normal pred:', len(y_pred_labels[y_pred_labels == 0]))
-        print('n_anomaly true:', len(y_true[y_true == 1]), 'n_anomaly pred:', len(y_pred_labels[y_pred_labels == 1]))
+        #print('n_normal true:', len(y_true[y_true == 0]), 'n_normal pred:', len(y_pred_labels[y_pred_labels == 0]))
+        #print('n_anomaly true:', len(y_true[y_true == 1]), 'n_anomaly pred:', len(y_pred_labels[y_pred_labels == 1]))
+        pass
 
-        print('precision: ', precision)
+        #print('precision: ', precision)
 
     if y_pred_score is None:
         if print_results:
-            print('roc: None\n')
+            #print('roc: None\n')
+            pass
         return precision, None
 
     fpr, tpr, _ = roc_curve(y_true, y_pred_score)

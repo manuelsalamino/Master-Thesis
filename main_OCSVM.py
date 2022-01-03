@@ -2,7 +2,7 @@ from Dataset import RealDataset, SyntheticDataset
 from ExtendedIForest import ExtendedIForest
 from ITree.INode import INode
 from simplex_functions import simplex_hyperplane_points, anomaly_score
-from utils_functions import get_data_centroid
+from utils_functions import evaluate_results
 
 import os
 import numpy as np
@@ -38,31 +38,38 @@ files = os.listdir(dir_path)
 files.remove('ForestCover.csv')
 files.remove('Http.csv')
 files.remove('Mulcross.csv')
-'''files.remove('Smtp.csv')
+files.remove('Smtp.csv')
 files.remove('Shuttle.csv')
 files.remove('Pendigits.csv')
 files.remove('hbk.csv')
-files.remove('wood.csv')'''
+files.remove('wood.csv')
 
 
 results = pd.DataFrame()
 
-#files = ['Breastw.csv']
-#files = ['Shuttle.csv', 'Smtp.csv']
+#files = ['Breastw.csv', 'Annthyroid.csv']
+files = ['ForestCover.csv']
 
 for dataset_name in files:
     print(dataset_name)
     path = os.path.join(dir_path, dataset_name)
     dataset = RealDataset(path)
 
-    for i in range(3):
+    for i in range(1):
         ifor = ExtendedIForest(N_ESTIMATORS=100, MAX_SAMPLES=256, dataset=dataset)
         ifor.fit_IForest()
         ifor.profile_IForest()
         ifor.trees_heights_as_histogram()
 
-        #df = ifor.OC_Svm()
-        df = ifor.LOF()
+        # IFOR PREDICTION
+        scores = ifor.get_anomaly_scores()
+        precision_ifor, roc_auc_ifor = evaluate_results(y_true=ifor.dataset.labels,
+                                                        y_pred_score=scores,
+                                                        y_pred_labels=[1 if s >= 0.5 else 0 for s in scores],
+                                                        print_results=True)
+
+        df = ifor.OC_Svm()
+        #df = ifor.LOF()
 
         results = results.append(df)
 

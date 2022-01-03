@@ -1,14 +1,13 @@
 from Dataset import RealDataset
 from ExtendedIForest import ExtendedIForest
 from utils_functions import parametric_equation
-from simplex_functions import simplex_hyperplane_points, perfect_anomalies_hyperplane_points
+from simplex_functions import hyperplane_points, simplex_hyperplane_points, perfect_anomalies_hyperplane_points
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import plotly.graph_objects as go
-import constraint
 
 
 def dim2():
@@ -118,7 +117,7 @@ def parallelE():
 # MAX_SAMPLES = 5
 def dim3():
     X, Y, Z = simplex_hyperplane_points()
-    H1, H2, H3 = perfect_anomalies_hyperplane_points()
+    H1, H2, H3 = perfect_anomalies_hyperplane_points([1, 2, 3])
 
     # upload REAL dataset
     dir_path = os.path.join(os.getcwd(), '../datasets')
@@ -414,4 +413,129 @@ def dim3_aggregate():
             fig.show()
 
 
-dim3_aggregate()
+def simplex():
+    X, Y, Z = hyperplane_points()
+
+    '''# draw the hyperplane surface
+    fig = go.Figure(data=[go.Mesh3d(x=X,
+                                    y=Y,
+                                    z=Z,
+                                    #opacity=0.5,
+                                    #color='rgba(244,22,100,0.1)',
+                                    color='rgba(112,172,255,0.3)',
+                                    name='h₁ + h₂ + h₃ = 1',
+                                    showlegend=True
+                                    )])'''
+
+    # draw simplex contours
+    fig = go.Figure(data=[go.Scatter3d(x=[1, 0, 0, 1],
+                                       y=[0, 1, 0, 0],
+                                       z=[0, 0, 1, 0],
+                                       mode='lines',
+                                       #line=dict(dash='dash'),
+                                       marker=dict(size=5, color='rgba(78,131,255,0.7)'),
+                                       name="simplex contours",
+                                       showlegend=False)])
+
+    # draw simplex surface
+    fig.add_mesh3d(x=[1, 0, 0, 1],
+                   y=[0, 1, 0, 0],
+                   z=[0, 0, 1, 0],
+                   # opacity=0.5,
+                   # color='rgba(244,22,100,0.1)',
+                   color='rgba(78,131,255,0.7)',
+                   name='simplex',
+                   showlegend=True
+                   )
+
+    fig.update_layout(
+        #scene_aspectmode='manual',
+        #scene_aspectratio=dict(x=2, y=2, z=1.85),
+        scene=dict(
+            xaxis=dict(nticks=4),  # , range=[0, 1.5], ),
+            xaxis_title="h1",
+            yaxis=dict(nticks=4),  # range=[0, 1.5], ),
+            yaxis_title="h2",
+            zaxis=dict(nticks=4),  # range=[0, 1.5], ),
+            zaxis_title="h3",
+            annotations=[
+                dict(
+                    showarrow=False,
+                    x=1,
+                    y=0,
+                    z=0,
+                    text="(1,0,0)",
+                    xanchor="left",
+                    yanchor="bottom",
+                    xshift=-30,
+                    font=dict(
+                        color="black",
+                        size=18
+                    )
+                ),
+                dict(
+                    showarrow=False,
+                    x=0,
+                    y=1,
+                    z=0,
+                    text="(0,1,0)",
+                    xanchor="left",
+                    yanchor="bottom",
+                    xshift=-30,
+                    font=dict(
+                        color="black",
+                        size=18
+                    )
+                ),
+                dict(
+                    showarrow=False,
+                    x=0,
+                    y=0,
+                    z=1,
+                    text="(0,0,1)",
+                    xanchor="left",
+                    yanchor="bottom",
+                    xshift=-30,
+                    font=dict(
+                        color="black",
+                        size=18
+                    )
+                )
+            ]
+        ),
+        margin=dict(r=20, l=10, b=10, t=10),
+        title={
+            'text': 'Simplex Representation',
+            'x': 0.5,
+            'y': 0.95,
+            'xanchor': 'center',
+            'yanchor': 'top'},
+        legend={
+            'x': 0.82,
+            'y': 0.87,
+            'xanchor': 'right',
+            'yanchor': 'top'}
+    )
+
+    fig.show()
+
+
+def plot_histogram():
+    # upload REAL dataset
+    dir_path = os.path.join(os.getcwd(), '../datasets')
+    files = os.listdir(dir_path)
+
+    files = ['Breastw.csv']
+
+    for dataset_name in files:
+        print(dataset_name)
+        path = os.path.join(dir_path, dataset_name)
+        dataset = RealDataset(path)
+
+        ifor = ExtendedIForest(N_ESTIMATORS=100, MAX_SAMPLES=256, dataset=dataset)
+        ifor.fit_IForest()
+        ifor.profile_IForest()
+        ifor.trees_heights_as_histogram(show_plot=True)
+
+
+simplex()

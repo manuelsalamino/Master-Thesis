@@ -89,6 +89,9 @@ class ExtendedIForest:
                     plt.hist(depths_i, range(1, max_depth + 1), color='#1f77b4')
                     title += 'NORMAL'
                 plt.title(title)
+                plt.xticks(ticks=np.arange(0, max_depth+1, step=2), labels=np.arange(0, max_depth+1, step=2))
+                plt.yticks(ticks=np.arange(0, max(h[0]) + 10, step=10),
+                           labels=[str(n)[:3] for n in np.arange(0, max(h[0])/100 + 0.1, step=0.1)])
                 plt.show()
 
             h = h[0] / self.N_ESTIMATORS
@@ -247,8 +250,9 @@ class ExtendedIForest:
         return best_popt
 
     def OC_Svm(self):
-        '''perc_training = 0.8
-        indexes = np.argwhere(self.dataset.labels == 0).reshape(-1,)
+        perc_training = 0.8
+        #indexes = np.argwhere(self.dataset.labels == 0).reshape(-1,)
+        indexes = np.arange(self.dataset.n_samples)
 
         n_training = floor(len(indexes) * perc_training)
 
@@ -265,9 +269,9 @@ class ExtendedIForest:
         #training_samples = self.dataset.data[training_indexes]
         #test_samples = self.dataset.data[test_indexes]
 
-        y_true = [1 if l == 0 else 0 for l in self.dataset.labels[test_indexes]]'''
+        y_true = [1 if l == 0 else 0 for l in self.dataset.labels[test_indexes]]
 
-        # HISTOGRAM DATA FULL UNSUPERVISED
+        '''# HISTOGRAM DATA FULL UNSUPERVISED
         training_samples = self.histogram_data
         test_samples = self.histogram_data
 
@@ -275,13 +279,13 @@ class ExtendedIForest:
         #training_samples = self.dataset.data
         #test_samples = self.dataset.data
 
-        y_true = [1 if l==0 else 0 for l in self.dataset.labels]
+        y_true = [1 if l==0 else 0 for l in self.dataset.labels]'''
 
         df = pd.DataFrame()
 
-        for kernel in ['poly']:
+        for kernel in ['poly', 'linear', 'rbf']:
             for gamma in ['auto']:
-                for nu in [0.5]:
+                for nu in [0.1, 0.5, 0.9]:
 
                     svm = OneClassSVM(kernel=kernel, gamma=gamma, nu=nu).fit(training_samples)
 
@@ -296,8 +300,9 @@ class ExtendedIForest:
                                                           y_pred_score=y_pred_score,
                                                           y_pred_labels=y_pred_labels)
 
-                    df = df.append(pd.DataFrame([[self.dataset.dataset_name, kernel, gamma, nu, precision, roc_auc]],
-                                                columns=['dataset', 'kernel', 'gamma', 'nu', 'precision', 'roc_auc']))
+                    df = df.append(pd.DataFrame([[self.dataset.dataset_name, kernel, gamma, nu, roc_auc]],
+                                                columns=['dataset', 'kernel', 'gamma', 'nu', 'roc_auc']))
+                    print('dataset: ', self.dataset.dataset_name, '    roc_auc: ', roc_auc)
 
                     '''
                     #draw dataset (if synthetic dataset and if data=dataset.data
@@ -308,7 +313,6 @@ class ExtendedIForest:
                     dataset.show_data()
                     dataset.labels = np.asarray([1 if l == 0 else 0 for l in y_pred_labels])
                     dataset.show_data()'''
-
 
         return df
 

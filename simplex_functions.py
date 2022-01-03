@@ -8,6 +8,29 @@ from ITree.INode import INode
 from utils_functions import anomaly_score
 
 
+# HYPERPLANE h1 + ... + hn = 1 (with no contraints on hi)
+def hyperplane_points():
+    problem = constraint.Problem()
+
+    problem.addVariable('x', np.arange(-1, 1.95, 0.05))
+    problem.addVariable('y', np.arange(-1, 1.95, 0.05))
+    problem.addVariable('z', np.arange(-3, 3.05, 0.05))
+
+    def our_constraint(x, y, z):
+        if 0.95 <= x + y + z <= 1.05:  # and -2 <= x <= 2 and -2 <= y <= 2 and -2 <= z <= 2:
+            return True
+
+    problem.addConstraint(our_constraint, ['x', 'y', 'z'])
+
+    solutions = problem.getSolutions()
+
+    X = np.asarray([list(sol.values())[0] for sol in solutions])
+    Y = np.asarray([list(sol.values())[1] for sol in solutions])
+    Z = np.asarray([list(sol.values())[2] for sol in solutions])
+
+    return X, Y, Z
+
+# HYPERPLANE h1 + ... + hn = 1 (with 0 <= hi <= 1)
 def simplex_hyperplane_points():
     problem = constraint.Problem()
 

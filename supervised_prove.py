@@ -38,14 +38,15 @@ files = os.listdir(dir_path)
 files.remove('ForestCover.csv')
 files.remove('Http.csv')
 files.remove('Mulcross.csv')
-#files.remove('Smtp.csv')
+files.remove('Smtp.csv')
 files.remove('Shuttle.csv')
 files.remove('Pendigits.csv')
 files.remove('hbk.csv')
 files.remove('wood.csv')
 
+# files = ['Mulcross.csv']
 # files = ['Breastw.csv']
-# files = ['Shuttle.csv', 'Smtp.csv']
+files = ['Http.csv', 'ForestCover.csv']
 
 results = pd.DataFrame()
 
@@ -77,7 +78,7 @@ for dataset_name in files:
             perfs.append(roc_auc)'''
 
 
-        ifor = ExtendedIForest(N_ESTIMATORS=500, MAX_SAMPLES=256, dataset=dataset)
+        ifor = ExtendedIForest(N_ESTIMATORS=100, MAX_SAMPLES=256, dataset=dataset)
         ifor.fit_IForest()
         ifor.profile_IForest()
 
@@ -102,7 +103,7 @@ for dataset_name in files:
         training_indexes = rnd.choice(indexes, size=n_training, replace=False)
         test_indexes = np.setdiff1d(np.arange(ifor.dataset.n_samples), training_indexes)'''
 
-        for i in range(8):
+        for i in [1]:
             # PCA
             # pca = PCA(n_components=0.95, svd_solver='full')
             pca = PCA(n_components=ifor.histogram_data.shape[1] - i)              # remove only the last component
@@ -152,7 +153,7 @@ for dataset_name in files:
             ############# OC_SVM
             for kernel in ['poly']:
                 for gamma in ['auto']:
-                    for nu in [0.5, 0.9, 0.99]:
+                    for nu in [0.99]:
                         # 5-FOLD CROSS VALIDATION using DECORRELATED DATA
                         svm = OneClassSVM(kernel=kernel, gamma=gamma, nu=nu)
                         roc_auc_pca = cross_val_score(svm, histogram_data, ifor.dataset.labels,
@@ -161,80 +162,82 @@ for dataset_name in files:
 
                         '''# 5-FOLD CROSS VALIDATION using NON-DECORRELATED DATA
                         svm = OneClassSVM(kernel=kernel, gamma=gamma, nu=nu)
-                        roc_auc = cross_val_score(svm, ifor.histogram_data,
-                                                  ifor.dataset.labels, scoring='roc_auc')
+                        roc_auc = cross_val_score(svm, ifor.histogram_data, ifor.dataset.labels,
+                                                  cv=StratifiedKFold(n_splits=5, shuffle=True), scoring='roc_auc')
                         print('roc_auc_cv NON DECORRELATED: ', roc_auc)'''
 
-                        # 5-FOLD CROSS VALIDATION using ORIGINAL DATA
+                        '''# 5-FOLD CROSS VALIDATION using ORIGINAL DATA
                         svm = OneClassSVM(kernel=kernel, gamma=gamma, nu=nu)
                         roc_auc_orig = cross_val_score(svm, dataset.data, ifor.dataset.labels,
                                                        cv=StratifiedKFold(n_splits=5, shuffle=True), scoring='roc_auc')
-                        print('roc_auc_cv ORIGINAL: ', roc_auc_orig, '\n')
+                        print('roc_auc_cv ORIGINAL: ', roc_auc_orig, '\n')'''
 
                         df = pd.DataFrame([[ifor.dataset.dataset_name, roc_auc_ifor,
-                                            #perfs[0], perfs[1], perfs[2], perfs[3], perfs[4],
                                             i, kernel, gamma, nu,
                                             roc_auc_pca[0], roc_auc_pca[1], roc_auc_pca[2], roc_auc_pca[3],
-                                            roc_auc_pca[4], np.mean(roc_auc_pca),
-                                            roc_auc_orig[0], roc_auc_orig[1], roc_auc_orig[2], roc_auc_orig[3],
-                                            roc_auc_orig[4], np.mean(roc_auc_orig)]],
+                                            roc_auc_pca[4], np.mean(roc_auc_pca)]],
+                                            #roc_auc[0], roc_auc[1], roc_auc[2], roc_auc[3],
+                                            #roc_auc[4], np.mean(roc_auc),
+                                            #roc_auc_orig[0], roc_auc_orig[1], roc_auc_orig[2], roc_auc_orig[3],
+                                            #roc_auc_orig[4], np.mean(roc_auc_orig)]],
                                           columns=['dataset', 'roc_auc_ifor',
-                                                   # 'roc_auc_ifor_cv - 0', 'roc_auc_ifor_cv - 1', 'roc_auc_ifor_cv - 2',
-                                                   # 'roc_auc_ifor_cv - 3', 'roc_auc_ifor_cv - 4',
                                                    'deleted PCA', 'kernel', 'gamma', 'nu',
                                                    'roc_auc_pca - 0', 'roc_auc_pca - 1', 'roc_auc_pca - 2',
-                                                   'roc_auc_pca - 3', 'roc_auc_pca - 4', 'MEDIA',
-                                                   'roc_auc_orig - 0', 'roc_auc_orig - 1', 'roc_auc_orig - 2',
-                                                   'roc_auc_orig - 3', 'roc_auc_orig - 4', 'MEDIA'])
+                                                   'roc_auc_pca - 3', 'roc_auc_pca - 4', 'MEDIA'])
+                                                    #'roc_auc_nopca - 0', 'roc_auc_nopca - 1', 'roc_auc_nopca - 2',
+                                                    #'roc_auc_nopca - 3', 'roc_auc_nopca - 4', 'MEDIA',
+                                                   #'roc_auc_orig - 0', 'roc_auc_orig - 1', 'roc_auc_orig - 2',
+                                                   #'roc_auc_orig - 3', 'roc_auc_orig - 4', 'MEDIA'])
 
                         results = results.append(df)
 
 
-            ''' ########### PROVE SUPERVISED
-            # 5-FOLD CROSS VALIDATION using DECORRELATED DATA
-            lda = LinearDiscriminantAnalysis()
-            # lda = LinearSVC(random_state=0, tol=1e-5)
-            # lda = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=(100, 10), random_state=1, max_iter=500)
-            # lda = SVC(C=c, kernel=kernel, gamma=gamma)
-            roc_auc_pca = cross_val_score(lda, histogram_data, ifor.dataset.labels,
+            '''########### PROVE SUPERVISED
+            for solver in ['lsqr']:
+                # 5-FOLD CROSS VALIDATION using DECORRELATED DATA
+                lda = LinearDiscriminantAnalysis(solver=solver)
+                # lda = LinearSVC(random_state=0, tol=1e-5)
+                # lda = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=(100, 10), random_state=1, max_iter=500)
+                # lda = SVC(C=c, kernel=kernel, gamma=gamma)
+                roc_auc_pca = cross_val_score(lda, histogram_data, ifor.dataset.labels,
+                                              cv=StratifiedKFold(n_splits=5, shuffle=True), scoring='roc_auc')
+                print('roc_auc_cv DECORRELATED: ', roc_auc_pca)
+
+                # 5-FOLD CROSS VALIDATION using NON-DECORRELATED DATA
+                lda = LinearDiscriminantAnalysis(solver=solver)
+                # lda = LinearSVC(random_state=0, tol=1e-5)
+                # lda = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=(10, 2), random_state=1, max_iter=500)
+                # lda = SVC(C=c, kernel=kernel, gamma=gamma)
+                roc_auc = cross_val_score(lda, ifor.histogram_data, ifor.dataset.labels,
                                           cv=StratifiedKFold(n_splits=5, shuffle=True), scoring='roc_auc')
-            print('roc_auc_cv DECORRELATED: ', roc_auc_pca)
+                print('roc_auc_cv NON DECORRELATED: ', roc_auc)
 
-            # 5-FOLD CROSS VALIDATION using NON-DECORRELATED DATA
-            # lda = LinearDiscriminantAnalysis()
-            # lda = LinearSVC(random_state=0, tol=1e-5)
-            lda = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=(10, 2), random_state=1, max_iter=500)
-            # lda = SVC(C=c, kernel=kernel, gamma=gamma)
-            roc_auc = cross_val_score(lda, ifor.histogram_data, ifor.dataset.labels,
-                                      cv=KFold(n_splits=5, shuffle=True), scoring='roc_auc')
-            print('roc_auc_cv NON DECORRELATED: ', roc_auc)
+                # 5-FOLD CROSS VALIDATION using ORIGINAL DATA
+                lda = LinearDiscriminantAnalysis(solver=solver)
+                # lda = LinearSVC(random_state=0, tol=1e-5)
+                # lda = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=(100, 10), random_state=1, max_iter=500)
+                # lda = SVC(C=c, kernel=kernel, gamma=gamma)
+                roc_auc_orig = cross_val_score(lda, dataset.data, ifor.dataset.labels,
+                                               cv=StratifiedKFold(n_splits=5, shuffle=True), scoring='roc_auc')
+                print('roc_auc_cv ORIGINAL: ', roc_auc_orig, '\n')
 
-            # 5-FOLD CROSS VALIDATION using ORIGINAL DATA
-            lda = LinearDiscriminantAnalysis()
-            # lda = LinearSVC(random_state=0, tol=1e-5)
-            # lda = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=(100, 10), random_state=1, max_iter=500)
-            # lda = SVC(C=c, kernel=kernel, gamma=gamma)
-            roc_auc_orig = cross_val_score(lda, dataset.data, ifor.dataset.labels,
-                                           cv=StratifiedKFold(n_splits=5, shuffle=True), scoring='roc_auc')
-            print('roc_auc_cv ORIGINAL: ', roc_auc_orig, '\n')
+                df = pd.DataFrame([[ifor.dataset.dataset_name, roc_auc_ifor, i, solver,
+                                    roc_auc_pca[0], roc_auc_pca[1], roc_auc_pca[2], roc_auc_pca[3], roc_auc_pca[4],
+                                    np.mean(roc_auc_pca),
+                                    roc_auc[0], roc_auc[1], roc_auc[2], roc_auc[3], roc_auc[4],
+                                    np.mean(roc_auc),
+                                    roc_auc_orig[0], roc_auc_orig[1], roc_auc_orig[2], roc_auc_orig[3], roc_auc_orig[4],
+                                    np.mean(roc_auc_orig)]],
+                                  columns=['dataset',  'roc_auc_ifor', 'deleted PCA', 'solver',
+                                           'roc_auc_pca - 0', 'roc_auc_pca - 1', 'roc_auc_pca - 2',
+                                           'roc_auc_pca - 3', 'roc_auc_pca - 4', 'MEDIA',
+                                           'roc_auc_nopca - 0', 'roc_auc_nopca - 1', 'roc_auc_nopca - 2',
+                                           'roc_auc_nopca - 3', 'roc_auc_nopca - 4', 'MEDIA',
+                                           'roc_auc_orig - 0', 'roc_auc_orig - 1', 'roc_auc_orig - 2',
+                                           'roc_auc_orig - 3', 'roc_auc_orig - 4', 'MEDIA'
+                                           ])
 
-            df = pd.DataFrame([[ifor.dataset.dataset_name, roc_auc_ifor, i,
-                                roc_auc_pca[0], roc_auc_pca[1], roc_auc_pca[2], roc_auc_pca[3], roc_auc_pca[4],
-                                np.mean(roc_auc_pca),
-                                # roc_auc[0], roc_auc[1], roc_auc[2], roc_auc[3], roc_auc[4],
-                                # np.mean(roc_auc),
-                                roc_auc_orig[0], roc_auc_orig[1], roc_auc_orig[2], roc_auc_orig[3], roc_auc_orig[4],
-                                np.mean(roc_auc_orig)]],
-                              columns=['dataset',  'roc_auc_ifor', 'deleted PCA',
-                                       'roc_auc_pca - 0', 'roc_auc_pca - 1', 'roc_auc_pca - 2',
-                                       'roc_auc_pca - 3', 'roc_auc_pca - 4', 'MEDIA',
-                                       # 'roc_auc_ifor - 0', 'roc_auc_ifor - 1', 'roc_auc_ifor - 2',
-                                       # 'roc_auc_ifor - 3', 'roc_auc_ifor - 4', 'MEDIA',
-                                       'roc_auc_orig - 0', 'roc_auc_orig - 1', 'roc_auc_orig - 2',
-                                       'roc_auc_orig - 3', 'roc_auc_orig - 4', 'MEDIA'
-                                       ])
-            
-            results = results.append(df)'''
+                results = results.append(df)'''
 
         '''lda.fit(histogram_data[training_indexes], ifor.dataset.labels[training_indexes])
 

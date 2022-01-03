@@ -2,10 +2,13 @@ from Dataset import RealDataset, SyntheticDataset
 from ExtendedIForest import ExtendedIForest
 from ITree.INode import INode
 from utils_functions import evaluate_results
+from IForest import IForest
 
 import os
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from math import floor
 import matplotlib.pyplot as plt
 from sklearn.ensemble import IsolationForest
 
@@ -36,49 +39,118 @@ files.remove('wood.csv')
 
 results = pd.DataFrame()
 
-files = ['Mammography.csv']
+#files = ['Mammography.csv']
 #files = ['Shuttle.csv', 'Smtp.csv']
 
 for dataset_name in files:
-    print(dataset_name)
-    path = os.path.join(dir_path, dataset_name)
-    dataset = RealDataset(path)
+    for j in range(8):
+        print(dataset_name)
+        path = os.path.join(dir_path, dataset_name)
+        dataset = RealDataset(path)
 
-    ifor = ExtendedIForest(N_ESTIMATORS=100, MAX_SAMPLES=256, dataset=dataset)
-    ifor.fit_IForest()
-    ifor.profile_IForest()
-    # ifor.trees_heights_as_histogram()
+        # TRAIN TEST SPLIT SEMI-SUPERVISED (TRAIN ONLY NORMALS)
+        perc_training = 0.8
+        indexes = np.argwhere(dataset.labels == 0).reshape(-1, )
 
-    scores = ifor.get_anomaly_scores()
-    y_pred_labels = [1 if s >= 0.5 else 0 for s in scores]
+        n_training = floor(len(indexes) * perc_training)
+        #n_training = dataset.n_samples - dataset.n_anomalies*2
 
-    precision, roc_auc = evaluate_results(y_true=ifor.dataset.labels,
-                                          y_pred_score=scores,
-                                          y_pred_labels=y_pred_labels)
+        rnd = np.random.RandomState(None)
 
-    # if correction - this make depths with no correction factor
-    '''ifor.depths = np.clip(ifor.depths, 0, 8)
-    scores = ifor.get_anomaly_scores()
+        training_indexes = rnd.choice(indexes, size=n_training, replace=False)
+        test_indexes = np.setdiff1d(np.arange(dataset.n_samples), training_indexes)
 
-    precision, roc_auc = evaluate_results(y_true=ifor.dataset.labels,
-                                          y_pred_score=scores,
-                                          y_pred_labels=y_pred_labels)'''
+        # DATASET DATA
+        training_samples = dataset.data[training_indexes]
+        test_samples = dataset.data[test_indexes]
 
-    ifor_sk = IsolationForest()
-    ifor_sk.fit(dataset.data)
+        #y_true = [1 if l == 0 else 0 for l in dataset.labels[test_indexes]]
 
-    y_pred_labels_sk = ifor_sk.predict(dataset.data)
-    y_pred_labels_sk = [1 if l == -1 else 0 for l in y_pred_labels_sk]
-    scores_sk = - ifor_sk.score_samples(dataset.data)
+        ifor_semi = IForest(n_estimators=100, max_samples=256)
+        ifor_semi.fit(training_samples)
+        depths = ifor_semi.profile(test_samples)
 
-    precision_sk, roc_auc_sk = evaluate_results(y_true=dataset.labels,
-                                                y_pred_score=scores_sk,
-                                                y_pred_labels=y_pred_labels_sk)
+        scores = []
+        for i in range(len(depths)):
+            avg = np.mean(depths[i])    # avg path length
+            score = pow(2, -avg / INode.c(256))
+            scores.append(score)
 
-    df = pd.DataFrame([[ifor.dataset.dataset_name, precision, roc_auc, precision_sk, roc_auc_sk]],
-                      columns=['dataset', 'precision', 'roc_auc', 'precision_sk', 'roc_auc_sk'])
+        y_pred_labels = [1 if s >= 0.5 else 0 for s in scores]
 
-    results = results.append(df)
+        _, roc_auc_semi = evaluate_results(y_true=dataset.labels[test_indexes],
+                                           y_pred_score=scores,
+                                           y_pred_labels=y_pred_labels)
+
+        # if correction - this make depths with no correction factor
+        '''ifor.depths = np.clip(ifor.depths, 0, 8)
+        scores = ifor.get_anomaly_scores()
+    
+        precision, roc_auc = evaluate_results(y_true=ifor.dataset.labels,
+                                              y_pred_score=scores,
+                                              y_pred_labels=y_pred_labels)'''
+
+        # TRAIN TEST SPLIT NORMAL AND ANOMALIES
+        #perc_training = 0.8
+        #indexes = np.arange(dataset.n_samples)
+
+        #n_training = floor(len(indexes) * perc_training)
+        #n_training = dataset.n_samples - dataset.n_anomalies * 2
+
+        #rnd = np.random.RandomState(1234)
+
+        #training_indexes = rnd.choice(indexes, size=n_training, replace=False)
+        #test_indexes = np.setdiff1d(np.arange(dataset.n_samples), training_indexes)
+
+        # DATASET DATA
+        training_samples, test_samples, train_labels, test_labels = train_test_split(dataset.data,
+                                                                                     dataset.labels,
+                                                                                     test_size=0.2,
+                                                                                     stratify=dataset.labels,
+                                                                                     random_state=None)
+
+        #training_samples = dataset.data[training_indexes]
+        #test_samples = dataset.data[test_indexes]
+
+        # y_true = [1 if l == 0 else 0 for l in dataset.labels[test_indexes]]
+
+        ifor_semi = IForest(n_estimators=100, max_samples=256)
+        ifor_semi.fit(training_samples)
+        depths = ifor_semi.profile(test_samples)
+
+        scores = []
+        for i in range(len(depths)):
+            avg = np.mean(depths[i])  # avg path length
+            score = pow(2, -avg / INode.c(256))
+            scores.append(score)
+
+        y_pred_labels = [1 if s >= 0.5 else 0 for s in scores]
+
+        _, roc_auc_unsupervised = evaluate_results(y_true=test_labels,
+                                                   y_pred_score=scores,
+                                                   y_pred_labels=y_pred_labels)
+
+        # UNSUPERVISED (TRAIN AND TEST ALL DATASET)
+        ifor_semi = IForest(n_estimators=100, max_samples=256)
+        ifor_semi.fit(dataset.data)
+        depths = ifor_semi.profile(dataset.data)
+
+        scores = []
+        for i in range(len(depths)):
+            avg = np.mean(depths[i])  # avg path length
+            score = pow(2, -avg / INode.c(256))
+            scores.append(score)
+
+        y_pred_labels = [1 if s >= 0.5 else 0 for s in scores]
+
+        _, roc_auc_full_dataset = evaluate_results(y_true=dataset.labels,
+                                                   y_pred_score=scores,
+                                                   y_pred_labels=y_pred_labels)
+
+        df = pd.DataFrame([[dataset.dataset_name, roc_auc_semi, roc_auc_unsupervised, roc_auc_full_dataset]],
+                          columns=['dataset', 'roc_auc_semi', 'roc_auc_unsupervised', 'roc_auc_full_dataset'])
+
+        results = results.append(df)
 
 with pd.ExcelWriter('output.xlsx', mode='w') as writer:
     results.to_excel(writer, index=False)
