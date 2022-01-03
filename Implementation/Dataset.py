@@ -63,7 +63,7 @@ class RealDataset(AbstractDataset):
 
 
 class SyntheticDataset(AbstractDataset):
-    dataset_type: str
+    dataset_type: str        # 'blobs', 'circles', 'line'...
 
     def __init__(self, n_samples=300, anomalies_rate=0.1, dataset_type="blobs", show_data=False, **kwargs):
 
