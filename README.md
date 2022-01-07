@@ -15,7 +15,8 @@ This thesis propose to use the **intermediate output of iForest** to create an *
 
 ## Isolation Forest
 
-iForest is an unsupervised model-based method for anomaly detection. This method represent a breakthrough, before iForest the usual approach to AD problems was: construct a _normal data profile_, then test unseen data instances and identify as anomalies the instances that do not conform to the normal profile. iForest differs from all the previous ones since it is based on the idea of _directly isolates anomalies_, instead of recognized them as far from the normal data profile.\\
+iForest is an unsupervised model-based method for anomaly detection. This method represent a breakthrough, before iForest the usual approach to AD problems was: construct a _normal data profile_, then test unseen data instances and identify as anomalies the instances that do not conform to the normal profile. iForest differs from all the previous ones since it is based on the idea of _directly isolates anomalies_, instead of recognized them as far from the normal data profile.
+
 This approach works because anomalies are more susceptible to isolation than normal instances: a normal instance requires much more partitions than an anomaly to be isolated. iForest assigns an anomaly score to each instance based on the number of splits required to isolate them.
 
 The model is based on a trees ensemble, each tree is called _Isolation Tree (iTree)_. In each iTree shortest paths (few splits) identify anomalies, while longest ones (more splits) predict normal instances.
