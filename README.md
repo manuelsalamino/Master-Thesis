@@ -1,6 +1,6 @@
 # Master Thesis - Anomaly Detection via Isolation Forest Embedding
 
-Look at the [Executive Summary](https://github.com/manuelsalamino/Master-Thesis/blob/main/Executive_Summary.pdf) (a 6 pages paper-like summary) to have a brief overview of the thesis.
+Look at the [Executive_Summary](https://github.com/manuelsalamino/Master-Thesis/blob/main/Executive_Summary.pdf) (a 6 pages paper-like summary) to have a brief overview of the thesis.
 
 ## Abstract
 Anomaly Detection (AD) is a Data Mining process and consists finding unusual patterns or rare observations in a set of data. Usually anomalies represent negative events, in fact anomaly detection is used in many different fields, from medicine to industry.
